@@ -26,10 +26,11 @@ typedef struct
 // Função para calcular o valor de 's'
 unsigned calculate_s(unsigned page_size)
 {
+    unsigned tmp = page_size;
     unsigned s = 0;
-    while (page_size > 1)
+    while (tmp > 1)
     {
-        page_size >>= 1;
+        tmp = tmp>>1;
         s++;
     }
     return s;
@@ -97,7 +98,7 @@ void simulate_memory_access(FILE *file, int page_size, int mem_size, const char 
         exit(1);
     }
 
-    unsigned int num_pages = 1 << (32 - calculate_s(page_size)); // Calcula o tamanho da tabela de páginas baseado em page_size
+    unsigned int num_pages = 1 << (calculate_s(page_size)); // Calcula o tamanho da tabela de páginas baseado em page_size
     PageTableEntry *page_table = calloc(num_pages, sizeof(PageTableEntry));
     if (!page_table)
     {
