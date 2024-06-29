@@ -4,7 +4,8 @@
 #include <limits.h>
 
 // Estrutura para uma entrada da tabela de páginas
-typedef struct {
+typedef struct
+{
     unsigned int page_number;
     int frame_number;
     int modified;
@@ -13,18 +14,21 @@ typedef struct {
 } PageTableEntry;
 
 // Estrutura para um quadro de memória
-typedef struct {
+typedef struct
+{
     unsigned int frame_number;
     unsigned int page_number;
     int modified;
-    int referenced;        // Adicionado para algoritmos como Segunda Chance
-    unsigned long last_access;  // Adicionado para LRU
+    int referenced;            // Adicionado para algoritmos como Segunda Chance
+    unsigned long last_access; // Adicionado para LRU
 } Frame;
 
 // Função para calcular o valor de 's'
-unsigned calculate_s(unsigned page_size) {
+unsigned calculate_s(unsigned page_size)
+{
     unsigned s = 0;
-    while (page_size > 1) {
+    while (page_size > 1)
+    {
         page_size >>= 1;
         s++;
     }
@@ -32,7 +36,8 @@ unsigned calculate_s(unsigned page_size) {
 }
 
 // Algoritmo de substituição FIFO
-int fifo_replace(Frame *frames, int num_frames) {
+int fifo_replace(Frame *frames, int num_frames)
+{
     static int next_frame = 0;
     int frame_to_replace = next_frame;
     next_frame = (next_frame + 1) % num_frames;
@@ -40,12 +45,15 @@ int fifo_replace(Frame *frames, int num_frames) {
 }
 
 // Algoritmo de substituição LRU
-int lru_replace(Frame *frames, int num_frames) {
+int lru_replace(Frame *frames, int num_frames)
+{
     unsigned long min_time = ULONG_MAX;
     int frame_to_replace = 0;
 
-    for (int i = 0; i < num_frames; i++) {
-        if (frames[i].last_access < min_time) {
+    for (int i = 0; i < num_frames; i++)
+    {
+        if (frames[i].last_access < min_time)
+        {
             min_time = frames[i].last_access;
             frame_to_replace = i;
         }
@@ -55,11 +63,14 @@ int lru_replace(Frame *frames, int num_frames) {
 }
 
 // Algoritmo de substituição Segunda Chance
-int second_chance_replace(Frame *frames, int num_frames) {
+int second_chance_replace(Frame *frames, int num_frames)
+{
     static int pointer = 0;
-    
-    while (1) {
-        if (!frames[pointer].referenced) {
+
+    while (1)
+    {
+        if (!frames[pointer].referenced)
+        {
             int frame_to_replace = pointer;
             pointer = (pointer + 1) % num_frames;
             return frame_to_replace;
@@ -70,22 +81,26 @@ int second_chance_replace(Frame *frames, int num_frames) {
 }
 
 // Algoritmo de substituição aleatória
-int random_replace(int num_frames) {
+int random_replace(int num_frames)
+{
     return random() % num_frames;
 }
 
 // Função para simular o acesso à memória
-void simulate_memory_access(FILE *file, int page_size, int mem_size, const char *replacement_algorithm) {
+void simulate_memory_access(FILE *file, int page_size, int mem_size, const char *replacement_algorithm, int debug)
+{
     int num_frames = mem_size / page_size;
     Frame *frames = calloc(num_frames, sizeof(Frame));
-    if (!frames) {
+    if (!frames)
+    {
         fprintf(stderr, "Erro ao alocar memória para os quadros.\n");
         exit(1);
     }
 
-    unsigned int num_pages = 1 << (32 - calculate_s(page_size));  // Calcula o tamanho da tabela de páginas baseado em page_size
+    unsigned int num_pages = 1 << (32 - calculate_s(page_size)); // Calcula o tamanho da tabela de páginas baseado em page_size
     PageTableEntry *page_table = calloc(num_pages, sizeof(PageTableEntry));
-    if (!page_table) {
+    if (!page_table)
+    {
         fprintf(stderr, "Erro ao alocar memória para a tabela de páginas.\n");
         free(frames);
         exit(1);
@@ -97,42 +112,63 @@ void simulate_memory_access(FILE *file, int page_size, int mem_size, const char 
 
     unsigned addr;
     char rw_char;
-    while (fscanf(file, "%x %c", &addr, &rw_char) != EOF) {
+    while (fscanf(file, "%x %c", &addr, &rw_char) != EOF)
+    {
         access_count++;
         unsigned page = addr >> calculate_s(page_size);
         int found = 0;
 
         // Verificação na tabela de páginas
-        for (int j = 0; j < num_frames; j++) {
-            if (frames[j].page_number == page) {
+        for (int j = 0; j < num_frames; j++)
+        {
+            if (frames[j].page_number == page)
+            {
                 frames[j].last_access = access_count;
                 frames[j].referenced = 1;
-                if (rw_char == 'W') {
+                if (rw_char == 'W')
+                {
                     frames[j].modified = 1;
                 }
                 found = 1;
+                if (debug)
+                {
+                    printf("Acesso %lu: página %x já está no quadro %d.\n", access_count, page, j);
+                }
                 break;
             }
         }
 
         // Se não encontrada, ocorre page fault
-        if (!found) {
+        if (!found)
+        {
             page_faults++;
             int frame_to_replace;
-            
-            if (strcmp(replacement_algorithm, "fifo") == 0) {
+
+            if (strcmp(replacement_algorithm, "fifo") == 0)
+            {
                 frame_to_replace = fifo_replace(frames, num_frames);
-            } else if (strcmp(replacement_algorithm, "lru") == 0) {
+            }
+            else if (strcmp(replacement_algorithm, "lru") == 0)
+            {
                 frame_to_replace = lru_replace(frames, num_frames);
-            } else if (strcmp(replacement_algorithm, "2a") == 0) {
+            }
+            else if (strcmp(replacement_algorithm, "2a") == 0)
+            {
                 frame_to_replace = second_chance_replace(frames, num_frames);
-            } else { // random
+            }
+            else
+            { // random
                 frame_to_replace = random_replace(num_frames);
             }
 
             // Se o frame estava modificado, deve ser escrito de volta
-            if (frames[frame_to_replace].modified) {
+            if (frames[frame_to_replace].modified)
+            {
                 pages_written++;
+                if (debug)
+                {
+                    printf("Acesso %lu: quadro %d modificado, escrevendo de volta antes de substituir.\n", access_count, frame_to_replace);
+                }
             }
 
             // Carregar a nova página
@@ -140,6 +176,11 @@ void simulate_memory_access(FILE *file, int page_size, int mem_size, const char 
             frames[frame_to_replace].last_access = access_count;
             frames[frame_to_replace].modified = (rw_char == 'W');
             frames[frame_to_replace].referenced = 1;
+
+            if (debug)
+            {
+                printf("Acesso %lu: page fault, carregando página %x no quadro %d.\n", access_count, page, frame_to_replace);
+            }
         }
     }
 
@@ -155,9 +196,11 @@ void simulate_memory_access(FILE *file, int page_size, int mem_size, const char 
     free(page_table);
 }
 
-int main(int argc, char *argv[]) {
-    if (argc < 5) {
-        fprintf(stderr, "Uso: %s algoritmo arquivo.log tamanho_pagina tamanho_memoria\n", argv[0]);
+int main(int argc, char *argv[])
+{
+    if (argc < 5)
+    {
+        fprintf(stderr, "Uso: %s algoritmo arquivo.log tamanho_pagina tamanho_memoria [debug]\n", argv[0]);
         return 1;
     }
 
@@ -165,14 +208,16 @@ int main(int argc, char *argv[]) {
     const char *log_file = argv[2];
     unsigned page_size = atoi(argv[3]);
     unsigned mem_size = atoi(argv[4]);
+    int debug = (argc == 6 && strcmp(argv[5], "debug") == 0) ? 1 : 0;
 
     FILE *file = fopen(log_file, "r");
-    if (!file) {
+    if (!file)
+    {
         fprintf(stderr, "Erro ao abrir o arquivo: %s\n", log_file);
         return 1;
     }
 
-    simulate_memory_access(file, page_size, mem_size, replacement_algorithm);
+    simulate_memory_access(file, page_size, mem_size, replacement_algorithm, debug);
     fclose(file);
 
     return 0;
